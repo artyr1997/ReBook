@@ -64,9 +64,16 @@
 		else rendition?.next();
 	}
 
+	// going back from the first page returns to the library
 	function prev() {
-		if (paged) current = Math.max(current - 1, 0);
-		else rendition?.prev();
+		if (paged) {
+			if (current === 0) close();
+			else current -= 1;
+		} else if ((rendition?.location as { atStart?: boolean } | undefined)?.atStart) {
+			close();
+		} else {
+			rendition?.prev();
+		}
 	}
 
 	async function toggleFullscreen() {
@@ -247,6 +254,22 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0;
+	}
+
+	/* rounded page corners; in a two-page spread only the outer ones, the spine stays straight */
+	.spread > :global(img),
+	.spread > :global(canvas) {
+		border-radius: 10px;
+	}
+
+	.spread > :global(:first-child:not(:last-child)) {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	.spread > :global(:last-child:not(:first-child)) {
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
 	}
 
 	.spread img {
