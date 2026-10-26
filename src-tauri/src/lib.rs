@@ -79,6 +79,12 @@ fn remove_book(state: State<AppState>, id: i64) -> CmdResult<()> {
     state.library.lock().map_err(err)?.remove(id)
 }
 
+/// Manga mode: right-to-left reading for this book.
+#[tauri::command]
+fn set_rtl(state: State<AppState>, id: i64, rtl: bool) -> CmdResult<()> {
+    state.library.lock().map_err(err)?.set_rtl(id, rtl)
+}
+
 /// Sizes of every comic page, so the reader can lay out spreads.
 #[tauri::command]
 fn comic_pages(state: State<AppState>, id: i64) -> CmdResult<Vec<PageSize>> {
@@ -183,6 +189,7 @@ pub fn run() {
             set_details,
             set_progress,
             remove_book,
+            set_rtl,
             comic_pages,
         ])
         .run(tauri::generate_context!())

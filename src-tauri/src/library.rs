@@ -42,6 +42,8 @@ pub struct Book {
     pub has_cover: bool,
     /// title / author / cover already read from the file (PDF and EPUB do this in the UI)
     pub prepared: bool,
+    /// manga: read right to left
+    pub rtl: bool,
 }
 
 #[derive(Serialize, Debug, Default)]
@@ -55,7 +57,7 @@ pub struct Library {
     root: PathBuf,
 }
 
-const COLUMNS: &str = "id, title, author, format, added_at, opened_at, position, progress, has_cover, prepared";
+const COLUMNS: &str = "id, title, author, format, added_at, opened_at, position, progress, has_cover, prepared, rtl";
 
 fn book_from_row(r: &Row) -> rusqlite::Result<Book> {
     Ok(Book {
@@ -69,6 +71,7 @@ fn book_from_row(r: &Row) -> rusqlite::Result<Book> {
         progress: r.get(7)?,
         has_cover: r.get(8)?,
         prepared: r.get(9)?,
+        rtl: r.get(10)?,
     })
 }
 
@@ -118,6 +121,14 @@ impl Library {
             );",
         )
         .map_err(err)?;
+        // added after the first release: libraries created before get the column here
+        let has_rtl: bool = conn
+            .prepare("SELECT 1 FROM pragma_table_info('books') WHERE name = 'rtl'")
+            .and_then(|mut s| s.exists([]))
+            .map_err(err)?;
+        if !has_rtl {
+            conn.execute_batch("ALTER TABLE books ADD COLUMN rtl INTEGER NOT NULL DEFAULT 0").map_err(err)?;
+        }
         Ok(Self { conn, root: root.to_path_buf() })
     }
 
@@ -258,6 +269,10 @@ impl Library {
         Ok(())
     }
 
+    pub fn set_rtl(&self, id: i64, rtl: bool) -> Result<()> {
+        self.conn.execute("UPDATE books SET rtl = ?1 WHERE id = ?2", params![rtl, id]).map(|_| ()).map_err(err)
+    }
+
     /// Removes a book; its stored copy and cover go to the Trash, so it can be recovered.
     pub fn remove(&self, id: i64) -> Result<()> {
         let path = self.path(id)?;
@@ -317,6 +332,10 @@ mod tests {
         let updated = lib.set_details(pdf.id, Some("A Paper"), Some("Ann"), Some(b"jpeg")).unwrap();
         assert_eq!((updated.title.as_str(), updated.author.as_str()), ("A Paper", "Ann"));
         assert!(updated.has_cover && updated.prepared);
+
+        assert!(!comic.rtl);
+        lib.set_rtl(comic.id, true).unwrap();
+        assert!(lib.get(comic.id).unwrap().rtl, "manga mode is remembered per book");
 
         lib.set_progress(pdf.id, "3", 0.5).unwrap();
         let listed = lib.list().unwrap();

@@ -2,7 +2,7 @@
 	// Reading view. PDFs and comics are page-based: portrait pages come two per
 	// screen, a landscape page takes the whole screen (see buildSpreads).
 	// EPUB text reflows; epub.js shows two columns when the window is wide.
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { getCurrentWindow } from '@tauri-apps/api/window';
 	import type { PDFDocumentProxy } from 'pdfjs-dist';
 	import type { Book as EpubBook, Rendition, Location } from 'epubjs';
@@ -28,10 +28,29 @@
 	let current = $state(0);
 	let pdf: PDFDocumentProxy | null = $state.raw(null);
 
+	// manga: pages run right to left, so a spread shows its second page on the left
+	// starts from the book's saved setting, then it's toggled here
+	let rtl = $state(untrack(() => book.rtl));
 	let spread = $derived(spreads[current] ?? []);
+	let shown = $derived(rtl ? [...spread].reverse() : spread);
 	let fitted = $derived(
-		spread.length && stageWidth ? fitSpread(spread.map(i => sizes[i]), { width: stageWidth, height: stageHeight }) : [],
+		shown.length && stageWidth ? fitSpread(shown.map(i => sizes[i]), { width: stageWidth, height: stageHeight }) : [],
 	);
+
+	function toggleManga() {
+		rtl = !rtl;
+		library.setRtl(book.id, rtl);
+	}
+
+	// which way the left / right arrows and sides turn depends on the reading direction
+	function goLeft() {
+		if (rtl) next();
+		else prev();
+	}
+	function goRight() {
+		if (rtl) prev();
+		else next();
+	}
 
 	// ── EPUB ──
 	let epubHost: HTMLDivElement | undefined = $state();
@@ -87,12 +106,20 @@
 
 	function handleKey(e: KeyboardEvent) {
 		if (e.metaKey || e.ctrlKey || e.altKey) return;
-		if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+		if (e.key === 'ArrowRight') {
+			e.preventDefault();
+			goRight();
+		} else if (e.key === 'ArrowLeft') {
+			e.preventDefault();
+			goLeft();
+		} else if (e.key === 'PageDown' || e.key === ' ') {
 			e.preventDefault();
 			next();
-		} else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+		} else if (e.key === 'PageUp') {
 			e.preventDefault();
 			prev();
+		} else if (e.code === 'KeyM' && paged) {
+			toggleManga();
 		} else if (e.key === 'Home' && paged) {
 			current = 0;
 		} else if (e.key === 'End' && paged) {
@@ -124,14 +151,18 @@
 	async function openReflowable() {
 		const b = await openEpub(book.id);
 		epub = b;
-		const r = b.renderTo(epubHost!, {
+		// `gap` is supported by epub.js but missing from its type definitions
+		const options = {
 			width: '100%',
 			height: '100%',
 			flow: 'paginated',
 			spread: 'auto',
 			minSpreadWidth: 800,
+			// pages of a book sit a little closer than epub.js's default (~1/12 of the width)
+			gap: 48,
 			allowScriptedContent: false,
-		});
+		};
+		const r = b.renderTo(epubHost!, options as Parameters<typeof b.renderTo>[1]);
 		rendition = r;
 		const fontCss = URL.createObjectURL(new Blob([epubFontCss()], { type: 'text/css' }));
 		r.hooks.content.register((contents: { addStylesheet: (url: string) => void }) => contents.addStylesheet(fontCss));
@@ -183,13 +214,16 @@
 
 <button class="side boxed nav-back" onclick={close} title="Library (Esc)">BACK</button>
 <button class="side boxed nav-full" onclick={toggleFullscreen} title="Full screen (F)">FULL</button>
+{#if paged}
+	<button class="side switch nav-manga" class:ink-mark-v={rtl} onclick={toggleManga} title="Manga: right to left (M)">MANGA</button>
+{/if}
 
 <main class="stage fade-in" bind:clientWidth={stageWidth} bind:clientHeight={stageHeight}>
 	{#if error}
 		<p class="error">This book couldn't be opened.<br /><span>{error}</span></p>
 	{:else if paged}
 		<div class="spread">
-			{#each spread as index, i (index)}
+			{#each shown as index, i (index)}
 				{#if fitted[i]}
 					{#if pdf}
 						<PdfPage doc={pdf} {index} width={fitted[i].width} height={fitted[i].height} />
@@ -205,17 +239,17 @@
 			{/each}
 		</div>
 		<!-- click the left / right side of the page to turn it -->
-		<button class="zone left" onclick={prev} aria-label="Previous page"></button>
-		<button class="zone right" onclick={next} aria-label="Next page"></button>
+		<button class="zone left" onclick={goLeft} aria-label={rtl ? 'Next page' : 'Previous page'}></button>
+		<button class="zone right" onclick={goRight} aria-label={rtl ? 'Previous page' : 'Next page'}></button>
 	{:else}
 		<div class="epub" bind:this={epubHost}></div>
 	{/if}
 </main>
 
 <div class="pager">
-	<button class="turn" onclick={prev} aria-label="Previous page">←</button>
+	<button class="turn" onclick={goLeft} aria-label={rtl ? 'Next page' : 'Previous page'}>←</button>
 	<span class="label">{label}</span>
-	<button class="turn" onclick={next} aria-label="Next page">→</button>
+	<button class="turn" onclick={goRight} aria-label={rtl ? 'Previous page' : 'Next page'}>→</button>
 </div>
 
 <style>
@@ -226,7 +260,7 @@
 		transform: translateX(-50%);
 		max-width: 60%;
 		font-family: 'Kurale', serif;
-		font-size: 20px;
+		font-size: 24px;
 		letter-spacing: 0.04em;
 		white-space: nowrap;
 		overflow: hidden;
@@ -236,6 +270,7 @@
 
 	.nav-back { left: calc(6.25% - 28px); top: 50%; transform: translateY(-50%); }
 	.nav-full { right: calc(6.25% - 28px); top: 50%; transform: translateY(-50%); }
+	.nav-manga { right: calc(6.25% - 28px); top: calc(6.25% + 8px); }
 
 	/* the pages sit between the side buttons, under the title, above the pager */
 	.stage {
@@ -311,7 +346,7 @@
 		min-width: 120px;
 		text-align: center;
 		font-family: 'Kurale', serif;
-		font-size: 18px;
+		font-size: 16px;
 		opacity: 0.8;
 	}
 

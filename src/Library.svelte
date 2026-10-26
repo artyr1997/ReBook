@@ -178,6 +178,7 @@
 		['Enter / →', 'Read'],
 		['← → / Space', 'Turn pages'],
 		['F', 'Full screen'],
+		['M', 'Manga (right to left)'],
 		['Esc', 'Back to library'],
 		['/', 'Search'],
 		['A', 'Add books'],
@@ -300,8 +301,8 @@
 		transform: translateX(-50%);
 		font-family: 'Kurale', serif;
 		font-weight: 400;
-		font-size: 30px;
-		line-height: 40px;
+		font-size: 24px;
+		line-height: 32px;
 		letter-spacing: 0.04em;
 	}
 
@@ -336,7 +337,7 @@
 		padding: 0;
 		text-align: left;
 		font-family: 'Kurale', serif;
-		font-size: 18px;
+		font-size: 16px;
 		line-height: 1.2;
 		cursor: url('/ink/hand.svg'), pointer;
 		scroll-margin: 56px 0;
@@ -352,7 +353,7 @@
 
 	.empty {
 		font-family: 'Kurale', serif;
-		font-size: 18px;
+		font-size: 16px;
 		opacity: 0.45;
 	}
 
@@ -396,7 +397,7 @@
 
 	.author {
 		font-family: 'Kurale', serif;
-		font-size: 18px;
+		font-size: 16px;
 		text-align: center;
 	}
 
@@ -430,8 +431,8 @@
 		border: none;
 		outline: none;
 		font-family: 'Kurale', serif;
-		font-size: 30px;
-		line-height: 40px;
+		font-size: 24px;
+		line-height: 32px;
 		text-align: center;
 		color: var(--text);
 	}

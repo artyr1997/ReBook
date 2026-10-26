@@ -17,6 +17,8 @@ export interface Book {
 	hasCover: boolean;
 	/** title / author / cover already read from the file */
 	prepared: boolean;
+	/** manga: read right to left */
+	rtl: boolean;
 }
 
 export interface PageSize {
@@ -31,6 +33,7 @@ export const library = {
 		invoke<Book>('set_details', { id, title: details.title ?? null, author: details.author ?? null, cover: details.cover ?? null }),
 	setProgress: (id: number, position: string, progress: number) => invoke<void>('set_progress', { id, position, progress }),
 	remove: (id: number) => invoke<void>('remove_book', { id }),
+	setRtl: (id: number, rtl: boolean) => invoke<void>('set_rtl', { id, rtl }),
 	comicPages: (id: number) => invoke<PageSize[]>('comic_pages', { id }),
 };
 
