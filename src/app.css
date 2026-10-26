@@ -1,0 +1,185 @@
+/* ReBook shares ReNote's look: paper background, ink grey, Kurale + Noto Sans JP. */
+
+:root {
+	--bg: #F4F4F4;
+	--text: #474747;
+	--line: #57585A;
+	--muted: #57585A;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+html,
+body {
+	height: 100%;
+	overflow: hidden;
+	background: var(--bg) url('/noise.svg') repeat;
+	color: var(--text);
+	font-family: 'Noto Sans JP', sans-serif;
+	-webkit-font-smoothing: antialiased;
+	cursor: url('/ink/cursor.svg'), default;
+	user-select: none;
+}
+
+input {
+	cursor: url('/ink/ibeam.svg') 10 10, text;
+	user-select: text;
+}
+
+button {
+	font: inherit;
+	color: inherit;
+}
+
+/* Hide scrollbars everywhere; scrolling still works */
+* {
+	scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+	display: none;
+}
+
+/* Placeholder disappears as soon as a field is focused */
+input:focus::placeholder {
+	opacity: 0 !important;
+}
+
+/* Ink brushstroke over text: the selected item.
+   Letters are "cut out" of the ink in the paper colour, like a mask.
+   Three-part vector stroke: the two rounded ends keep their shape, the body stretches.
+   Negative margins cancel the padding so text doesn't shift. */
+.ink-mark {
+	background:
+		url('/ink/brush-left.svg') left center / auto 100% no-repeat,
+		url('/ink/brush-right.svg') right center / auto 100% no-repeat,
+		url('/ink/brush-mid.svg') 0.65em center / calc(100% - 1.3em) 100% no-repeat;
+	color: var(--bg);
+	padding: 0.25em 0.45em;
+	margin: -0.25em -0.45em;
+	-webkit-box-decoration-break: clone;
+	box-decoration-break: clone;
+}
+
+/* Same stroke drawn top-to-bottom, for vertical text (vertical text).
+   .side.ink-mark-v outranks the buttons' own transparent background. */
+.ink-mark-v,
+.side.ink-mark-v {
+	background:
+		url('/ink/brush-top.svg') center top / 100% auto no-repeat,
+		url('/ink/brush-bottom.svg') center bottom / 100% auto no-repeat,
+		url('/ink/brush-mid-v.svg') center 0.65em / 100% calc(100% - 1.3em) no-repeat;
+	color: var(--bg);
+}
+
+/* Lines fade out near the edges of scrollable blocks (see lib/scrollFade.ts) */
+@property --fade-top {
+	syntax: '<length>';
+	inherits: false;
+	initial-value: 0px;
+}
+
+@property --fade-bottom {
+	syntax: '<length>';
+	inherits: false;
+	initial-value: 0px;
+}
+
+.scroll-fade {
+	--fade-top: 0px;
+	--fade-bottom: 0px;
+	mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent);
+	-webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent);
+	transition: --fade-top 200ms ease, --fade-bottom 200ms ease;
+}
+
+.scroll-fade.fade-top {
+	--fade-top: 56px;
+}
+
+.scroll-fade.fade-bottom {
+	--fade-bottom: 56px;
+}
+
+/* ── Vertical side buttons (as in ReNote) ── */
+.side {
+	position: fixed;
+	z-index: 10;
+	font-family: 'Noto Sans JP', sans-serif;
+	font-size: 20px;
+	line-height: 32px;
+	color: var(--text);
+	writing-mode: vertical-rl;
+	text-orientation: upright;
+	letter-spacing: 0.6em;
+	background: transparent;
+	border: none;
+	padding: 0;
+	cursor: url('/ink/hand.svg'), pointer;
+}
+
+/* view switch (vertical text): the active one is inked with a vertical brushstroke */
+.side.switch {
+	width: 42px;
+	padding: 0.55em 0 0;
+	opacity: 0.75;
+	transition: opacity 200ms ease;
+}
+
+.side.switch:hover,
+.side.switch.ink-mark-v {
+	opacity: 1;
+}
+
+/* plain text buttons (INFO, DEL) */
+.side.plain {
+	opacity: 0.75;
+	transition: opacity 200ms ease;
+}
+
+.side.plain:hover {
+	opacity: 1;
+}
+
+/* boxed buttons (BACK, NEW, active view switch) */
+.side.boxed {
+	width: 42px;
+	padding: 18px 0 calc(18px - 0.6em);
+	border: 2px solid var(--line);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: background 200ms ease, color 200ms ease;
+}
+
+.side.boxed:hover,
+.side.boxed.on {
+	background: var(--text);
+	border-color: var(--text);
+	color: var(--bg);
+}
+
+.side.boxed:disabled {
+	opacity: 0.3;
+	pointer-events: none;
+}
+
+.fade-in {
+	animation: fadeIn 300ms ease-in-out backwards;
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
