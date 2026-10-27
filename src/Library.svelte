@@ -296,7 +296,7 @@
 
 	.title {
 		position: fixed;
-		top: calc(var(--edge-y) - 2px);
+		top: 28px;
 		left: 50%;
 		transform: translateX(-50%);
 		font-family: 'Kurale', serif;
@@ -306,17 +306,17 @@
 		letter-spacing: 0.04em;
 	}
 
-	.nav-read { left: var(--edge-x); top: 50%; transform: translateY(-50%); }
-	.nav-add { right: var(--edge-x); top: 50%; transform: translateY(-50%); }
-	.nav-info { left: var(--edge-x); bottom: var(--edge-y); width: 42px; }
-	.nav-del { right: var(--edge-x); bottom: var(--edge-y); width: 42px; }
+	.nav-read { left: calc(6.25% - 28px); top: 50%; transform: translateY(-50%); }
+	.nav-add { right: calc(6.25% - 28px); top: 50%; transform: translateY(-50%); }
+	.nav-info { left: calc(6.25% - 28px); bottom: 6.25%; width: 42px; }
+	.nav-del { right: calc(6.25% - 28px); bottom: 6.25%; width: 42px; }
 	.side:disabled { opacity: 0.3; pointer-events: none; }
 
 	/* ── list of titles ── */
 	.books {
 		position: absolute;
-		top: calc(var(--edge-y) + 132px);
-		bottom: calc(var(--edge-y) + 72px);
+		top: calc(6.25% + 132px);
+		bottom: calc(6.25% + 72px);
 		left: calc(21.3% - 0.6em);
 		width: 30%;
 		overflow-y: auto;
@@ -360,10 +360,10 @@
 	/* ── selected book ── */
 	.details {
 		position: absolute;
-		top: calc(var(--edge-y) + 132px);
-		bottom: calc(var(--edge-y) + 72px);
+		top: calc(6.25% + 132px);
+		bottom: calc(6.25% + 72px);
 		left: 58%;
-		right: calc(var(--edge-x) + 88px);
+		right: calc(6.25% + 60px);
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -424,7 +424,7 @@
 	.search {
 		position: absolute;
 		left: 50%;
-		bottom: calc(var(--edge-y) - 6px);
+		bottom: calc(6.25% - 6px);
 		transform: translateX(-50%);
 		width: 360px;
 		background: transparent;

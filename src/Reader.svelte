@@ -255,7 +255,7 @@
 <style>
 	.title {
 		position: fixed;
-		top: calc(var(--edge-y) - 14px);
+		top: 16px;
 		left: 50%;
 		transform: translateX(-50%);
 		max-width: 60%;
@@ -268,17 +268,17 @@
 		opacity: 0.8;
 	}
 
-	.nav-back { left: var(--edge-x); top: 50%; transform: translateY(-50%); }
-	.nav-full { right: var(--edge-x); top: 50%; transform: translateY(-50%); }
-	.nav-manga { right: var(--edge-x); top: calc(var(--edge-y) + 8px); }
+	.nav-back { left: calc(6.25% - 28px); top: 50%; transform: translateY(-50%); }
+	.nav-full { right: calc(6.25% - 28px); top: 50%; transform: translateY(-50%); }
+	.nav-manga { right: calc(6.25% - 28px); top: calc(6.25% + 8px); }
 
 	/* the pages sit between the side buttons, under the title, above the pager */
 	.stage {
 		position: fixed;
-		top: calc(var(--edge-y) + 24px);
-		bottom: calc(var(--edge-y) + 24px);
-		left: calc(var(--edge-x) + 72px);
-		right: calc(var(--edge-x) + 72px);
+		top: calc(6.25% + 24px);
+		bottom: calc(6.25% + 24px);
+		left: calc(6.25% + 44px);
+		right: calc(6.25% + 44px);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -335,7 +335,7 @@
 	.pager {
 		position: fixed;
 		left: 50%;
-		bottom: calc(var(--edge-y) - 18px);
+		bottom: calc(6.25% - 18px);
 		transform: translateX(-50%);
 		display: flex;
 		align-items: center;
