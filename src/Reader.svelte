@@ -311,11 +311,13 @@
 </div>
 
 <style>
+	/* the title and the pager sit halfway between the pages and the window edge */
 	.title {
 		position: fixed;
-		top: 16px;
+		top: calc(3.125% + 12px);
 		left: 50%;
-		transform: translateX(-50%);
+		transform: translate(-50%, -50%);
+		line-height: 32px;
 		max-width: 60%;
 		font-family: 'Kurale', serif;
 		font-size: 24px;
@@ -473,8 +475,8 @@
 	.pager {
 		position: fixed;
 		left: 50%;
-		bottom: calc(6.25% - 18px);
-		transform: translateX(-50%);
+		bottom: calc(3.125% + 12px);
+		transform: translate(-50%, 50%);
 		display: flex;
 		align-items: center;
 		gap: 1.5rem;
