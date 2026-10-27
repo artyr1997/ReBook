@@ -72,14 +72,53 @@
 		save(String(spread[0]), (spread[spread.length - 1] + 1) / sizes.length);
 	});
 
-	// preload the next comic spread so turning the page is instant
+	// preload the neighbouring comic spreads so turning the page is instant
 	$effect(() => {
 		if (!isComic(book.format)) return;
-		for (const i of spreads[current + 1] ?? []) new Image().src = urls.page(book.id, i);
+		for (const i of [...(spreads[current + 1] ?? []), ...(spreads[current - 1] ?? [])]) new Image().src = urls.page(book.id, i);
 	});
 
+	// ── turning the page (comics) ──
+	// The new spread is shown at once; the old one lies on top of it and its outer
+	// page turns over the spine, showing the new page on its back.
+	type Turn = { id: number; pages: number[]; sizes: PageSize[]; dir: 'left' | 'right' };
+	let turn: Turn | null = $state(null);
+	let turnId = 0;
+
+	function go(target: number) {
+		if (target === current) return;
+		if (isComic(book.format) && fitted.length) {
+			// forward turns the page to the left, unless the book reads right to left
+			const dir = target > current !== rtl ? 'left' : 'right';
+			turn = { id: ++turnId, pages: shown, sizes: fitted, dir };
+		}
+		current = target;
+	}
+
+	let flip = $derived.by(() => {
+		if (!turn) return null;
+		const { pages, sizes: old, dir } = turn;
+		const width = old.reduce((sum, s) => sum + s.width, 0);
+		const height = Math.max(...old.map(s => s.height));
+		let x = 0;
+		const boxes = pages.map((index, i) => {
+			const box = { index, left: x, top: (height - old[i].height) / 2, width: old[i].width, height: old[i].height };
+			x += old[i].width;
+			return box;
+		});
+		const leaf = dir === 'left' ? boxes[boxes.length - 1] : boxes[0];
+		const rest = boxes.filter(b => b !== leaf);
+		// two pages before and after: the back of the leaf is the new page on the side it lands
+		const back = boxes.length === 2 && shown.length === 2 ? (dir === 'left' ? shown[0] : shown[1]) : null;
+		return { width, height, leaf, rest, back };
+	});
+
+	function turned(id: number) {
+		if (turn?.id === id) turn = null;
+	}
+
 	function next() {
-		if (paged) current = Math.min(current + 1, spreads.length - 1);
+		if (paged) go(Math.min(current + 1, spreads.length - 1));
 		else rendition?.next();
 	}
 
@@ -87,7 +126,7 @@
 	function prev() {
 		if (paged) {
 			if (current === 0) close();
-			else current -= 1;
+			else go(current - 1);
 		} else if ((rendition?.location as { atStart?: boolean } | undefined)?.atStart) {
 			close();
 		} else {
@@ -225,19 +264,38 @@
 		<div class="spread">
 			{#each shown as index, i (index)}
 				{#if fitted[i]}
-					{#if pdf}
-						<PdfPage doc={pdf} {index} width={fitted[i].width} height={fitted[i].height} />
-					{:else}
-						<img
-							src={urls.page(book.id, index)}
-							alt="Page {index + 1}"
-							style="width: {fitted[i].width}px; height: {fitted[i].height}px;"
-							draggable="false"
-						/>
-					{/if}
+					<div class="page" style="width: {fitted[i].width}px; height: {fitted[i].height}px;">
+						{#if pdf}
+							<PdfPage doc={pdf} {index} width={fitted[i].width} height={fitted[i].height} />
+						{:else}
+							<img src={urls.page(book.id, index)} alt="Page {index + 1}" draggable="false" />
+						{/if}
+					</div>
 				{/if}
 			{/each}
 		</div>
+		{#if turn && flip}
+			{#key turn.id}
+				{@const id = turn.id}
+				<div class="flip {turn.dir}" class:solo={!flip.back} style="width: {flip.width}px; height: {flip.height}px;">
+					{#each flip.rest as box (box.index)}
+						<div class="page rest" style="left: {box.left}px; top: {box.top}px; width: {box.width}px; height: {box.height}px;">
+							<img src={urls.page(book.id, box.index)} alt="" draggable="false" />
+						</div>
+					{/each}
+					<div
+						class="leaf"
+						style="left: {flip.leaf.left}px; top: {flip.leaf.top}px; width: {flip.leaf.width}px; height: {flip.leaf.height}px;"
+						onanimationend={() => turned(id)}
+					>
+						<div class="page face"><img src={urls.page(book.id, flip.leaf.index)} alt="" draggable="false" /></div>
+						{#if flip.back !== null}
+							<div class="page face back"><img src={urls.page(book.id, flip.back)} alt="" draggable="false" /></div>
+						{/if}
+					</div>
+				</div>
+			{/key}
+		{/if}
 		<!-- click the left / right side of the page to turn it -->
 		<button class="zone left" onclick={goLeft} aria-label={rtl ? 'Next page' : 'Previous page'}></button>
 		<button class="zone right" onclick={goRight} aria-label={rtl ? 'Previous page' : 'Next page'}></button>
@@ -291,28 +349,108 @@
 		gap: 0;
 	}
 
-	/* rounded page corners; in a two-page spread only the outer ones, the spine stays straight */
-	.spread > :global(img),
-	.spread > :global(canvas) {
+	/* a page: rounded corners and a faint grey shadow inside along its edges */
+	.page {
+		position: relative;
+		overflow: hidden;
 		border-radius: 10px;
+		box-shadow: 0 1px 12px rgba(0, 0, 0, 0.08);
 	}
 
-	.spread > :global(:first-child:not(:last-child)) {
+	.page::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		box-shadow: inset 0 0 6px rgba(71, 71, 71, 0.22);
+		pointer-events: none;
+	}
+
+	.page img,
+	.page :global(canvas) {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+		user-select: none;
+	}
+
+	/* in a two-page spread only the outer corners are round, the spine stays straight */
+	.spread > .page:first-child:not(:last-child),
+	.flip.left .rest,
+	.flip.right .leaf .face:not(.back),
+	.flip.left .leaf .back {
 		border-top-right-radius: 0;
 		border-bottom-right-radius: 0;
 	}
 
-	.spread > :global(:last-child:not(:first-child)) {
+	.spread > .page:last-child:not(:first-child),
+	.flip.right .rest,
+	.flip.left .leaf .face:not(.back),
+	.flip.right .leaf .back {
 		border-top-left-radius: 0;
 		border-bottom-left-radius: 0;
 	}
 
-	.spread img {
-		display: block;
-		object-fit: contain;
-		box-shadow: 0 1px 12px rgba(0, 0, 0, 0.08);
-		user-select: none;
+	/* ── page turn ── */
+	.flip {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		perspective: 2400px;
+		pointer-events: none;
 	}
+
+	.flip .rest,
+	.leaf {
+		position: absolute;
+	}
+
+	/* the page under the leaf disappears once the leaf, now showing its back, covers it */
+	.flip .rest {
+		animation: rest-hide 520ms ease-in-out forwards;
+	}
+
+	.leaf {
+		transform-style: preserve-3d;
+		animation: 520ms ease-in-out forwards;
+	}
+
+	.flip.left .leaf { transform-origin: left center; animation-name: turn-left; }
+	.flip.right .leaf { transform-origin: right center; animation-name: turn-right; }
+	/* a single page (cover, wide page): it just swings away */
+	.flip.solo.left .leaf { animation-name: swing-left; }
+	.flip.solo.right .leaf { animation-name: swing-right; }
+
+	.face {
+		position: absolute;
+		inset: 0;
+		backface-visibility: hidden;
+	}
+
+	.face.back {
+		transform: rotateY(180deg);
+	}
+
+	/* shading while the page is lifted */
+	.face::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		background: rgba(71, 71, 71, 0.18);
+		opacity: 0;
+		animation: lift-shade 520ms ease-in-out forwards;
+		pointer-events: none;
+	}
+
+	@keyframes turn-left { from { transform: rotateY(0deg); } to { transform: rotateY(-180deg); } }
+	@keyframes turn-right { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
+	@keyframes swing-left { from { transform: rotateY(0deg); opacity: 1; } to { transform: rotateY(-90deg); opacity: 0; } }
+	@keyframes swing-right { from { transform: rotateY(0deg); opacity: 1; } to { transform: rotateY(90deg); opacity: 0; } }
+	@keyframes rest-hide { 0%, 49.9% { opacity: 1; } 50%, 100% { opacity: 0; } }
+	@keyframes lift-shade { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
 
 	.zone {
 		position: absolute;
