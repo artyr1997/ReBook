@@ -5,6 +5,9 @@
 	--text: #474747;
 	--line: #57585A;
 	--muted: #57585A;
+	/* distance from the window edge to the side buttons */
+	--edge-x: 40px;
+	--edge-y: 30px;
 }
 
 *,
