@@ -6,8 +6,12 @@
 
 	const win = getCurrentWindow();
 
-	// the buttons show only while this window is the focused one of the active app
+	// the buttons show only while this window is the focused one of the active app,
+	// and then it has no shadow either
 	let focused = $state(true);
+	$effect(() => {
+		win.setShadow(!focused);
+	});
 	$effect(() => {
 		win.isFocused().then((f) => (focused = f));
 		const off = win.onFocusChanged(({ payload }) => (focused = payload));
