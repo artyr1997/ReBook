@@ -5,11 +5,21 @@
 	import { getCurrentWindow } from '@tauri-apps/api/window';
 
 	const win = getCurrentWindow();
+
+	// the buttons show only while this window is the focused one of the active app
+	let focused = $state(true);
+	$effect(() => {
+		win.isFocused().then((f) => (focused = f));
+		const off = win.onFocusChanged(({ payload }) => (focused = payload));
+		return () => {
+			off.then((stop) => stop());
+		};
+	});
 </script>
 
 <div class="drag-strip" data-tauri-drag-region></div>
 
-<div class="window-controls">
+<div class="window-controls" class:away={!focused}>
 	<button class="light close" onclick={() => win.close()} title="Close" aria-label="Close">
 		<svg viewBox="0 0 8 8"><path d="M2 2l4 4M6 2L2 6" /></svg>
 	</button>
@@ -39,6 +49,13 @@
 		flex-direction: column;
 		gap: 8px;
 		z-index: 95;
+		transition: opacity 150ms ease;
+	}
+
+	.window-controls.away {
+		opacity: 0;
+		visibility: hidden;
+		transition: opacity 150ms ease, visibility 0s 150ms;
 	}
 
 	.light {
