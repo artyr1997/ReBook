@@ -201,6 +201,11 @@
 <button class="side plain nav-info" onclick={() => (popup = 'info')} title="Info (I)">INFO</button>
 <button class="side plain nav-del" onclick={() => (popup = 'delete')} disabled={!current} title="Remove (Backspace)">DEL</button>
 
+<!-- a small window: just the titles -->
+<button class="corner top-right" onclick={() => read()} disabled={!current} title="Read (Enter)">READ</button>
+<button class="corner bottom-left" onclick={() => (popup = 'info')} title="Info (I)">INFO</button>
+<button class="corner bottom-right" onclick={pickFiles} title="Add books (A)">ADD</button>
+
 <main class="library fade-in">
 	{#if loaded && books.length === 0}
 		<p class="welcome">Drop PDF, EPUB or comics here<br />or press <span class="ink-mark">ADD</span>.</p>
@@ -440,6 +445,34 @@
 	.search::placeholder {
 		color: var(--muted);
 		opacity: 0.55;
+	}
+
+	/* ── a small window: the titles across it, no cover ── */
+	@media (max-width: 759px), (max-height: 559px) {
+		.title {
+			top: 12px;
+			font-size: 18px;
+		}
+
+		.books {
+			top: 52px;
+			bottom: 52px;
+			left: 40px;
+			width: calc(100% - 80px);
+		}
+
+		.details { display: none; }
+
+		.welcome {
+			width: calc(100% - 48px);
+			font-size: 18px;
+		}
+
+		.search {
+			bottom: 8px;
+			width: calc(100% - 200px);
+			font-size: 18px;
+		}
 	}
 
 	/* ── drop overlay ── */

@@ -183,3 +183,44 @@ input:focus::placeholder {
 		opacity: 1;
 	}
 }
+
+/* ── Small window (like ReSound's mini player): the side buttons give way
+   to a few small ones in the corners; the window controls keep the top left ── */
+.corner {
+	display: none;
+}
+
+@media (max-width: 759px), (max-height: 559px) {
+	.side {
+		display: none !important;
+	}
+
+	.corner {
+		display: block;
+		position: fixed;
+		z-index: 10;
+		background: transparent;
+		border: none;
+		padding: 0.3em 0.4em;
+		font-family: 'Noto Sans JP', sans-serif;
+		font-size: 12px;
+		letter-spacing: 0.3em;
+		opacity: 0.6;
+		cursor: pointer;
+		transition: opacity 200ms ease;
+	}
+
+	.corner:hover,
+	.corner.on {
+		opacity: 1;
+	}
+
+	.corner:disabled {
+		opacity: 0.25;
+		pointer-events: none;
+	}
+
+	.corner.top-right { top: 12px; right: 12px; }
+	.corner.bottom-left { bottom: 12px; left: 12px; }
+	.corner.bottom-right { bottom: 12px; right: 12px; }
+}

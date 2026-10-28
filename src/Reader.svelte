@@ -42,6 +42,21 @@
 		library.setRtl(book.id, rtl);
 	}
 
+	// a small window shows one page at a time, staying on the same page
+	let winWidth = $state(window.innerWidth);
+	let winHeight = $state(window.innerHeight);
+	let single = $derived(winWidth < 760 || winHeight < 560);
+
+	$effect(() => {
+		const one = single;
+		untrack(() => {
+			if (!sizes.length) return;
+			const page = spreads[current]?.[0] ?? 0;
+			spreads = buildSpreads(sizes, one);
+			current = spreadOf(spreads, page);
+		});
+	});
+
 	// which way the left / right arrows and sides turn depends on the reading direction
 	function goLeft() {
 		if (rtl) next();
@@ -183,7 +198,7 @@
 		} else {
 			sizes = await library.comicPages(book.id);
 		}
-		spreads = buildSpreads(sizes);
+		spreads = buildSpreads(sizes, single);
 		current = spreadOf(spreads, Number(book.position ?? 0) || 0);
 	}
 
@@ -247,7 +262,7 @@
 	});
 </script>
 
-<svelte:window onkeydown={handleKey} />
+<svelte:window bind:innerWidth={winWidth} bind:innerHeight={winHeight} onkeydown={handleKey} />
 
 <p class="title" title={book.title}>{book.title}</p>
 
@@ -255,7 +270,12 @@
 <button class="side boxed nav-full" onclick={toggleFullscreen} title="Full screen (F)">FULL</button>
 {#if paged}
 	<button class="side switch nav-manga" class:ink-mark-v={rtl} onclick={toggleManga} title="Manga: right to left (M)">MANGA</button>
+	<button class="corner bottom-left" class:on={rtl} onclick={toggleManga} title="Manga: right to left (M)">MANGA</button>
 {/if}
+
+<!-- a small window: the pages take it all -->
+<button class="corner top-right" onclick={close} title="Library (Esc)">BACK</button>
+<button class="corner bottom-right" onclick={toggleFullscreen} title="Full screen (F)">FULL</button>
 
 <main class="stage fade-in" bind:clientWidth={stageWidth} bind:clientHeight={stageHeight}>
 	{#if error}
@@ -502,6 +522,32 @@
 	}
 
 	.turn:hover { opacity: 1; }
+
+	/* ── a small window: the pages between a smaller title and pager ── */
+	@media (max-width: 759px), (max-height: 559px) {
+		.title {
+			top: 22px;
+			max-width: calc(100% - 200px);
+			font-size: 16px;
+			line-height: 24px;
+		}
+
+		.stage {
+			top: 44px;
+			bottom: 44px;
+			left: 36px;
+			right: 36px;
+		}
+
+		.pager {
+			bottom: 22px;
+			gap: 1rem;
+		}
+
+		.label { min-width: 80px; }
+
+		.turn { font-size: 20px; }
+	}
 
 	.error {
 		font-family: 'Kurale', serif;

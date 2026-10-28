@@ -61,12 +61,13 @@ const isPortrait = (p: PageSize) => p.height > p.width;
  * - a landscape page (wider than tall) gets the whole screen
  * - the cover stands alone, like the front of a printed comic
  * - a portrait page left without a portrait partner stands alone
+ * - in a small window (`single`) every page stands alone
  */
-export function buildSpreads(pages: PageSize[]): number[][] {
+export function buildSpreads(pages: PageSize[], single = false): number[][] {
 	const spreads: number[][] = [];
 	let i = 0;
 	while (i < pages.length) {
-		if (i > 0 && isPortrait(pages[i]) && i + 1 < pages.length && isPortrait(pages[i + 1])) {
+		if (!single && i > 0 && isPortrait(pages[i]) && i + 1 < pages.length && isPortrait(pages[i + 1])) {
 			spreads.push([i, i + 1]);
 			i += 2;
 		} else {
