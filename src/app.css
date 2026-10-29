@@ -83,6 +83,8 @@ input:focus::placeholder {
 :root {
 	color-scheme: light dark;
 	--light-off: #c9c9c9;
+	/* the window's rim (body::after) */
+	--rim: rgba(0, 0, 0, 0.12);
 	--error: #b04a45;
 }
 
@@ -93,6 +95,7 @@ input:focus::placeholder {
 		--line: #747474;
 		--muted: #747474;
 		--light-off: #4a4a4a;
+		--rim: rgba(255, 255, 255, 0.16);
 		--error: #e07a72;
 	}
 
@@ -273,4 +276,16 @@ input:focus::placeholder {
 	.corner.top-right { top: 12px; right: 12px; }
 	.corner.bottom-left { bottom: 12px; left: 12px; }
 	.corner.bottom-right { bottom: 12px; right: 12px; }
+}
+
+/* A thin rim around the window, as macOS drew before the title bar went (lib.rs): the window's own
+   corners, over everything, never in the way of the mouse. */
+body::after {
+	content: '';
+	position: fixed;
+	inset: 0;
+	border: 1px solid var(--rim);
+	border-radius: 12px;
+	pointer-events: none;
+	z-index: 2147483647;
 }
