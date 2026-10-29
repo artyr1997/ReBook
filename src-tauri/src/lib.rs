@@ -143,7 +143,8 @@ fn serve(app: &tauri::AppHandle, path: &str) -> Response<Vec<u8>> {
 
 /// No title bar at all (decorations are off in tauri.conf.json): macOS rims every titled window with
 /// a light line that can't be turned off. The window is clear instead, its page is rounded here like a
-/// window's corners, and the UI draws its own close / minimise / zoom buttons.
+/// window's corners, and the UI draws its own close / minimise / zoom buttons. No shadow either
+/// (tauri.conf.json).
 #[cfg(target_os = "macos")]
 fn round_window(window: &tauri::WebviewWindow) {
     use objc2::msg_send;
@@ -161,11 +162,6 @@ fn round_window(window: &tauri::WebviewWindow) {
             if !layer.is_null() {
                 let _: () = msg_send![layer, setCornerRadius: 12.0f64];
                 let _: () = msg_send![layer, setMasksToBounds: true];
-            }
-            // the shadow follows the rounded page, not the old square
-            let ns_window: *mut AnyObject = msg_send![view, window];
-            if !ns_window.is_null() {
-                let _: () = msg_send![ns_window, invalidateShadow];
             }
         }
     });
