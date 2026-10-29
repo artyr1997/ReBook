@@ -74,7 +74,7 @@
 		font-size: 16px;
 		letter-spacing: 0.2em;
 		padding: 0.4rem 1.2rem;
-		cursor: url('/ink/hand.svg'), pointer;
+		cursor: pointer;
 		transition: background 200ms ease, color 200ms ease;
 	}
 

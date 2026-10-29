@@ -489,7 +489,7 @@
 		width: 35%;
 		background: transparent;
 		border: none;
-		cursor: url('/ink/hand.svg'), pointer;
+		cursor: pointer;
 	}
 
 	.zone.left { left: 0; }
@@ -525,7 +525,7 @@
 		font-size: 26px;
 		line-height: 1;
 		opacity: 0.6;
-		cursor: url('/ink/hand.svg'), pointer;
+		cursor: pointer;
 		transition: opacity 200ms ease;
 	}
 

@@ -23,12 +23,12 @@ body {
 	color: var(--text);
 	font-family: 'Noto Sans JP', sans-serif;
 	-webkit-font-smoothing: antialiased;
-	cursor: url('/ink/cursor.svg'), default;
+	cursor: default;
 	user-select: none;
 }
 
 input {
-	cursor: url('/ink/ibeam.svg') 10 10, text;
+	cursor: text;
 	user-select: text;
 }
 
@@ -103,16 +103,6 @@ input:focus::placeholder {
 		background-blend-mode: multiply;
 	}
 
-	html,
-	body {
-		cursor: url('/ink/dark/cursor.svg'), default;
-	}
-
-	input,
-	textarea {
-		cursor: url('/ink/dark/ibeam.svg') 10 10, text;
-	}
-
 	.ink-mark {
 		background:
 			url('/ink/dark/brush-left.svg') left center / auto 100% no-repeat,
@@ -174,7 +164,7 @@ input:focus::placeholder {
 	background: transparent;
 	border: none;
 	padding: 0;
-	cursor: url('/ink/hand.svg'), pointer;
+	cursor: pointer;
 }
 
 /* view switch (vertical text): the active one is inked with a vertical brushstroke */
@@ -288,4 +278,11 @@ body::after {
 	border-radius: 12px;
 	pointer-events: none;
 	z-index: 2147483647;
+}
+
+/* at night the rim marks the window in use: the others have none */
+@media (prefers-color-scheme: dark) {
+	html.blurred body::after {
+		border-color: transparent;
+	}
 }

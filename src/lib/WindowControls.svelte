@@ -6,8 +6,12 @@
 
 	const win = getCurrentWindow();
 
-	// the buttons show only while this window is the focused one of the active app
+	// the buttons show only while this window is the focused one of the active app;
+	// the page hears of it too (html.blurred: the window's rim, app.css)
 	let focused = $state(true);
+	$effect(() => {
+		document.documentElement.classList.toggle('blurred', !focused);
+	});
 	$effect(() => {
 		win.isFocused().then((f) => (focused = f));
 		const off = win.onFocusChanged(({ payload }) => (focused = payload));

@@ -344,7 +344,7 @@
 		font-family: 'Kurale', serif;
 		font-size: 16px;
 		line-height: 1.2;
-		cursor: url('/ink/hand.svg'), pointer;
+		cursor: pointer;
 		scroll-margin: 56px 0;
 	}
 
