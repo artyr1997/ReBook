@@ -89,9 +89,9 @@ input:focus::placeholder {
 @media (prefers-color-scheme: dark) {
 	:root {
 		--bg: #1d1d1d;
-		--text: #cdcdcd;
-		--line: #9d9d9d;
-		--muted: #9d9d9d;
+		--text: #6c6c6c;
+		--line: #626262;
+		--muted: #626262;
 		--light-off: #4a4a4a;
 		--error: #e07a72;
 	}
