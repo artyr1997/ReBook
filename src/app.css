@@ -78,6 +78,56 @@ input:focus::placeholder {
 	color: var(--bg);
 }
 
+/* ── Dark, when the Mac is: the same paper at night. Its grain is light, so over the dark it is
+   multiplied in (darker specks) instead of laid on (a haze); the ink turns light. ── */
+:root {
+	color-scheme: light dark;
+	--light-off: #c9c9c9;
+	--error: #b04a45;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #1d1d1d;
+		--text: #cdcdcd;
+		--line: #9d9d9d;
+		--muted: #9d9d9d;
+		--light-off: #4a4a4a;
+		--error: #e07a72;
+	}
+
+	* {
+		background-blend-mode: multiply;
+	}
+
+	html,
+	body {
+		cursor: url('/ink/dark/cursor.svg'), default;
+	}
+
+	input,
+	textarea {
+		cursor: url('/ink/dark/ibeam.svg') 10 10, text;
+	}
+
+	.ink-mark {
+		background:
+			url('/ink/dark/brush-left.svg') left center / auto 100% no-repeat,
+			url('/ink/dark/brush-right.svg') right center / auto 100% no-repeat,
+			url('/ink/dark/brush-mid.svg') 0.65em center / calc(100% - 1.3em) 100% no-repeat;
+		background-blend-mode: normal;
+	}
+
+	.ink-mark-v,
+	.side.ink-mark-v {
+		background:
+			url('/ink/dark/brush-top.svg') center top / 100% auto no-repeat,
+			url('/ink/dark/brush-bottom.svg') center bottom / 100% auto no-repeat,
+			url('/ink/dark/brush-mid-v.svg') center 0.65em / 100% calc(100% - 1.3em) no-repeat;
+		background-blend-mode: normal;
+	}
+}
+
 /* Lines fade out near the edges of scrollable blocks (see lib/scrollFade.ts) */
 @property --fade-top {
 	syntax: '<length>';

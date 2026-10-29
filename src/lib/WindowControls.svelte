@@ -72,7 +72,7 @@
 		place-items: center;
 		cursor: default;
 		/* grey at rest; the macOS colours appear when hovering the group */
-		background: #c9c9c9;
+		background: var(--light-off, #c9c9c9);
 		box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
 		transition: background 150ms ease;
 	}

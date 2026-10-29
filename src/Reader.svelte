@@ -202,6 +202,9 @@
 		current = spreadOf(spreads, Number(book.position ?? 0) || 0);
 	}
 
+	/** The theme's ink (app.css), for the book's own pages: they live in a frame of their own. */
+	const ink = () => getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#474747';
+
 	async function openReflowable() {
 		const b = await openEpub(book.id);
 		epub = b;
@@ -223,12 +226,12 @@
 		r.themes.default({
 			body: {
 				'font-family': "'Kurale', serif !important",
-				color: '#474747 !important',
+				color: `${ink()} !important`,
 				background: 'transparent !important',
 				'line-height': '1.75 !important',
 			},
 			'p, li, blockquote': { 'font-family': "'Kurale', serif !important" },
-			a: { color: '#474747 !important' },
+			a: { color: `${ink()} !important` },
 			img: { 'max-width': '100% !important' },
 		});
 		r.on('keydown', handleKey);
@@ -249,7 +252,12 @@
 
 	onMount(() => {
 		(paged ? openPaged() : openReflowable()).catch(e => (error = String(e)));
+		// the Mac switched between light and dark while a book is open
+		const scheme = matchMedia('(prefers-color-scheme: dark)');
+		const recolor = () => rendition?.themes.override('color', ink(), true);
+		scheme.addEventListener('change', recolor);
 		return () => {
+			scheme.removeEventListener('change', recolor);
 			if (saveTimer) clearTimeout(saveTimer);
 			pdf?.destroy();
 			epub?.destroy();
