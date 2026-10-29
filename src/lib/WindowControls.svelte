@@ -1,7 +1,7 @@
 <script lang="ts">
-	// Desktop only: the native title bar is transparent and its buttons are hidden
-	// (src-tauri/src/lib.rs), so the window gets vertical close / minimise / zoom
-	// buttons and an invisible strip along the top for dragging.
+	// Desktop only: the window has no title bar (src-tauri/tauri.conf.json, lib.rs),
+	// so it gets vertical close / minimise / zoom buttons and an invisible strip
+	// along the top for dragging.
 	import { getCurrentWindow } from '@tauri-apps/api/window';
 
 	const win = getCurrentWindow();

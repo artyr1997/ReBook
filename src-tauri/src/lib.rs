@@ -141,24 +141,34 @@ fn serve(app: &tauri::AppHandle, path: &str) -> Response<Vec<u8>> {
     }
 }
 
-/// The title bar is transparent (see tauri.conf.json) and the UI draws its own
-/// vertical close / minimise / zoom buttons, so the native ones are hidden.
+/// No title bar at all (decorations are off in tauri.conf.json): macOS rims every titled window with
+/// a light line that can't be turned off. The window is clear instead, its page is rounded here like a
+/// window's corners, and the UI draws its own close / minimise / zoom buttons.
 #[cfg(target_os = "macos")]
-fn hide_native_window_buttons(window: &tauri::WebviewWindow) {
-    use objc2_app_kit::{NSWindow, NSWindowButton};
+fn round_window(window: &tauri::WebviewWindow) {
+    use objc2::msg_send;
+    use objc2::runtime::AnyObject;
 
-    let Ok(ptr) = window.ns_window() else { return };
-    // SAFETY: Tauri returns the live NSWindow of this webview window; setup runs on the main thread.
-    let ns_window = unsafe { &*(ptr as *const NSWindow) };
-    for kind in [
-        NSWindowButton::CloseButton,
-        NSWindowButton::MiniaturizeButton,
-        NSWindowButton::ZoomButton,
-    ] {
-        if let Some(button) = ns_window.standardWindowButton(kind) {
-            button.setHidden(true);
+    let _ = window.with_webview(|platform| {
+        let view = platform.inner() as *mut AnyObject;
+        if view.is_null() {
+            return;
         }
-    }
+        // SAFETY: `inner()` is the live WKWebView (an NSView); this runs on the main thread.
+        unsafe {
+            let _: () = msg_send![view, setWantsLayer: true];
+            let layer: *mut AnyObject = msg_send![view, layer];
+            if !layer.is_null() {
+                let _: () = msg_send![layer, setCornerRadius: 12.0f64];
+                let _: () = msg_send![layer, setMasksToBounds: true];
+            }
+            // the shadow follows the rounded page, not the old square
+            let ns_window: *mut AnyObject = msg_send![view, window];
+            if !ns_window.is_null() {
+                let _: () = msg_send![ns_window, invalidateShadow];
+            }
+        }
+    });
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -179,7 +189,7 @@ pub fn run() {
 
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
-                hide_native_window_buttons(&window);
+                round_window(&window);
             }
             Ok(())
         })

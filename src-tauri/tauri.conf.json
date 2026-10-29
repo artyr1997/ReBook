@@ -21,13 +21,14 @@
         "resizable": true,
         "fullscreen": false,
         "center": true,
-        "titleBarStyle": "Overlay",
-        "hiddenTitle": true
+        "decorations": false,
+        "transparent": true
       }
     ],
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
     "active": true,
