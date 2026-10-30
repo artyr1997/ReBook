@@ -252,12 +252,11 @@
 
 	onMount(() => {
 		(paged ? openPaged() : openReflowable()).catch(e => (error = String(e)));
-		// the Mac switched between light and dark while a book is open
-		const scheme = matchMedia('(prefers-color-scheme: dark)');
+		// the Mac switched between light and dark while a book is open (index.html)
 		const recolor = () => rendition?.themes.override('color', ink(), true);
-		scheme.addEventListener('change', recolor);
+		addEventListener('themechange', recolor);
 		return () => {
-			scheme.removeEventListener('change', recolor);
+			removeEventListener('themechange', recolor);
 			if (saveTimer) clearTimeout(saveTimer);
 			pdf?.destroy();
 			epub?.destroy();

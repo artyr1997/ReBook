@@ -167,9 +167,66 @@ fn round_window(window: &tauri::WebviewWindow) {
     });
 }
 
+/// The window starts hidden (tauri.conf.json) and fades in once its page has loaded, so the app
+/// opens softly instead of appearing at once.
+#[cfg(target_os = "macos")]
+fn fade_in(window: &tauri::WebviewWindow) {
+    use objc2::runtime::AnyObject;
+    use objc2::{class, msg_send};
+
+    if window.is_visible().unwrap_or(true) {
+        return;
+    }
+    let Ok(ns_window) = window.ns_window() else {
+        let _ = window.show();
+        return;
+    };
+    let ns_window = ns_window as *mut AnyObject;
+    // SAFETY: the live NSWindow of `window`, on the main thread (see reveal).
+    unsafe {
+        let _: () = msg_send![ns_window, setAlphaValue: 0.0f64];
+    }
+    let _ = window.show();
+    let _ = window.set_focus();
+    unsafe {
+        let _: () = msg_send![class!(NSAnimationContext), beginGrouping];
+        let context: *mut AnyObject = msg_send![class!(NSAnimationContext), currentContext];
+        let _: () = msg_send![context, setDuration: 0.45f64];
+        let name: *mut AnyObject = msg_send![class!(NSString), stringWithUTF8String: c"easeOut".as_ptr()];
+        let timing: *mut AnyObject = msg_send![class!(CAMediaTimingFunction), functionWithName: name];
+        let _: () = msg_send![context, setTimingFunction: timing];
+        let animator: *mut AnyObject = msg_send![ns_window, animator];
+        let _: () = msg_send![animator, setAlphaValue: 1.0f64];
+        let _: () = msg_send![class!(NSAnimationContext), endGrouping];
+    }
+}
+
+/// Fades the window in on the main thread; `after` waits first (the fallback, should the page never load).
+fn reveal(window: &tauri::WebviewWindow, after: std::time::Duration) {
+    let window = window.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(after);
+        let target = window.clone();
+        let _ = window.run_on_main_thread(move || {
+            #[cfg(target_os = "macos")]
+            fade_in(&target);
+            #[cfg(not(target_os = "macos"))]
+            let _ = target.show();
+        });
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .on_page_load(|webview, payload| {
+            use tauri::Manager;
+            if webview.label() == "main" && matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
+                if let Some(window) = webview.app_handle().get_webview_window("main") {
+                    reveal(&window, std::time::Duration::ZERO);
+                }
+            }
+        })
         .plugin(tauri_plugin_dialog::init())
         .register_asynchronous_uri_scheme_protocol("rebook", |ctx, request, responder| {
             let app = ctx.app_handle().clone();
@@ -186,6 +243,7 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
                 round_window(&window);
+                reveal(&window, std::time::Duration::from_secs(4));
             }
             Ok(())
         })

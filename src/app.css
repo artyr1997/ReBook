@@ -88,37 +88,50 @@ input:focus::placeholder {
 	--error: #b04a45;
 }
 
-@media (prefers-color-scheme: dark) {
-	:root {
-		--bg: #1d1d1d;
-		--text: #808080;
-		--line: #747474;
-		--muted: #747474;
-		--light-off: #4a4a4a;
-		--rim: rgba(255, 255, 255, 0.16);
-		--error: #e07a72;
-	}
+:root[data-theme='dark'] {
+	--bg: #1d1d1d;
+	--text: #808080;
+	--line: #747474;
+	--muted: #747474;
+	--light-off: #4a4a4a;
+	--rim: rgba(255, 255, 255, 0.16);
+	--error: #e07a72;
+}
 
-	* {
-		background-blend-mode: multiply;
-	}
+:root[data-theme='dark'] * {
+	background-blend-mode: multiply;
+}
 
-	.ink-mark {
-		background:
-			url('/ink/dark/brush-left.svg') left center / auto 100% no-repeat,
-			url('/ink/dark/brush-right.svg') right center / auto 100% no-repeat,
-			url('/ink/dark/brush-mid.svg') 0.65em center / calc(100% - 1.3em) 100% no-repeat;
-		background-blend-mode: normal;
-	}
+:root[data-theme='dark'] .ink-mark {
+	background:
+		url('/ink/dark/brush-left.svg') left center / auto 100% no-repeat,
+		url('/ink/dark/brush-right.svg') right center / auto 100% no-repeat,
+		url('/ink/dark/brush-mid.svg') 0.65em center / calc(100% - 1.3em) 100% no-repeat;
+	background-blend-mode: normal;
+}
 
-	.ink-mark-v,
-	.side.ink-mark-v {
-		background:
-			url('/ink/dark/brush-top.svg') center top / 100% auto no-repeat,
-			url('/ink/dark/brush-bottom.svg') center bottom / 100% auto no-repeat,
-			url('/ink/dark/brush-mid-v.svg') center 0.65em / 100% calc(100% - 1.3em) no-repeat;
-		background-blend-mode: normal;
-	}
+:root[data-theme='dark'] .ink-mark-v,
+:root[data-theme='dark'] .side.ink-mark-v {
+	background:
+		url('/ink/dark/brush-top.svg') center top / 100% auto no-repeat,
+		url('/ink/dark/brush-bottom.svg') center bottom / 100% auto no-repeat,
+		url('/ink/dark/brush-mid-v.svg') center 0.65em / 100% calc(100% - 1.3em) no-repeat;
+	background-blend-mode: normal;
+}
+
+/* the Mac turned light or dark: the old look fades into the new one (index.html) */
+:root[data-theme='light'] {
+	color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+	color-scheme: dark;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: 0.7s;
+	animation-timing-function: ease-in-out;
 }
 
 /* Lines fade out near the edges of scrollable blocks (see lib/scrollFade.ts) */
@@ -281,8 +294,6 @@ body::after {
 }
 
 /* at night the rim marks the window in use: the others have none */
-@media (prefers-color-scheme: dark) {
-	html.blurred body::after {
-		border-color: transparent;
-	}
+html[data-theme='dark'].blurred body::after {
+	border-color: transparent;
 }

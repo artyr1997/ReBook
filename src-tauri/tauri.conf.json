@@ -13,6 +13,7 @@
     "windows": [
       {
         "label": "main",
+        "visible": false,
         "title": "ReBook",
         "width": 1440,
         "height": 900,

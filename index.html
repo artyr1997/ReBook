@@ -4,6 +4,24 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="/favicon.png" type="image/png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			// light or dark as the Mac is; when it turns, the old look fades into the new one
+			(function () {
+				var root = document.documentElement;
+				var system = matchMedia('(prefers-color-scheme: dark)');
+				var theme = function () { return system.matches ? 'dark' : 'light'; };
+				root.dataset.theme = theme();
+				system.addEventListener('change', function () {
+					var next = theme();
+					if (root.dataset.theme === next) return;
+					var apply = function () {
+						root.dataset.theme = next;
+						dispatchEvent(new Event('themechange'));
+					};
+					document.startViewTransition && !document.hidden ? document.startViewTransition(apply) : apply();
+				});
+			})();
+		</script>
 		<title>ReBook</title>
 	</head>
 	<body spellcheck="false">
