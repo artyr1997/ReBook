@@ -206,6 +206,8 @@ input:focus::placeholder {
 /* boxed buttons (BACK, NEW, active view switch) */
 .side.boxed {
 	width: 42px;
+	/* as tall as ReNote's boxes: a short word sits in the middle, a long one makes it taller */
+	min-height: 164px;
 	padding: 18px 0 calc(18px - 0.6em);
 	border: 2px solid var(--line);
 	display: flex;
