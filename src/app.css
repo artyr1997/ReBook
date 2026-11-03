@@ -281,6 +281,12 @@ input:focus::placeholder {
 	.corner.top-right { top: 12px; right: 12px; }
 	.corner.bottom-left { bottom: 12px; left: 12px; }
 	.corner.bottom-right { bottom: 12px; right: 12px; }
+
+	/* only in the window in use: in one behind, the corner buttons stay out of sight */
+	html.blurred .corner {
+		opacity: 0 !important;
+		pointer-events: none;
+	}
 }
 
 /* A thin rim around the window, as macOS drew before the title bar went (lib.rs): the window's own
