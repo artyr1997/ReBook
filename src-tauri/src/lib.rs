@@ -223,6 +223,87 @@ fn window_ready(webview: tauri::Webview) {
     reveal(&webview.window(), std::time::Duration::ZERO);
 }
 
+/// ReDesk's Hide / Show Windows (a distributed notification, "hide" or "show"): the windows fade out
+/// and then the app hides, or the app shows again with its windows fading in.
+#[cfg(target_os = "macos")]
+fn listen_for_desk_fades() {
+    use block2::RcBlock;
+    use objc2::runtime::AnyObject;
+    use objc2::{class, msg_send};
+    use std::ffi::CStr;
+
+    /// every window of the app animated to `alpha`, then `done`
+    unsafe fn animate(alpha: f64, done: Option<&block2::Block<dyn Fn()>>) {
+        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+        let windows: *mut AnyObject = msg_send![app, windows];
+        let count: usize = msg_send![windows, count];
+        let _: () = msg_send![class!(NSAnimationContext), beginGrouping];
+        let context: *mut AnyObject = msg_send![class!(NSAnimationContext), currentContext];
+        let _: () = msg_send![context, setDuration: 0.25f64];
+        if let Some(done) = done {
+            let _: () = msg_send![context, setCompletionHandler: done];
+        }
+        for i in 0..count {
+            let window: *mut AnyObject = msg_send![windows, objectAtIndex: i];
+            let animator: *mut AnyObject = msg_send![window, animator];
+            let _: () = msg_send![animator, setAlphaValue: alpha];
+        }
+        let _: () = msg_send![class!(NSAnimationContext), endGrouping];
+    }
+
+    /// every window's alpha set at once
+    unsafe fn set_alpha(alpha: f64) {
+        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+        let windows: *mut AnyObject = msg_send![app, windows];
+        let count: usize = msg_send![windows, count];
+        for i in 0..count {
+            let window: *mut AnyObject = msg_send![windows, objectAtIndex: i];
+            let _: () = msg_send![window, setAlphaValue: alpha];
+        }
+    }
+
+    let handler = RcBlock::new(|note: *mut AnyObject| {
+        // SAFETY: on the main queue, with AppKit's own objects
+        unsafe {
+            let object: *mut AnyObject = msg_send![note, object];
+            if object.is_null() {
+                return;
+            }
+            let text: *const std::os::raw::c_char = msg_send![object, UTF8String];
+            if text.is_null() {
+                return;
+            }
+            let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+            let hidden: bool = msg_send![app, isHidden];
+            match CStr::from_ptr(text).to_bytes() {
+                b"hide" if !hidden => {
+                    let done = RcBlock::new(|| {
+                        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+                        let _: () = msg_send![app, hide: std::ptr::null::<AnyObject>()];
+                        set_alpha(1.0);
+                    });
+                    animate(0.0, Some(&done));
+                }
+                b"show" if hidden => {
+                    set_alpha(0.0);
+                    let _: () = msg_send![app, unhideWithoutActivation];
+                    animate(1.0, None);
+                }
+                _ => {}
+            }
+        }
+    });
+    // SAFETY: the center copies the block and keeps the observer for the app's life
+    unsafe {
+        let center: *mut AnyObject = msg_send![class!(NSDistributedNotificationCenter), defaultCenter];
+        let name: *mut AnyObject =
+            msg_send![class!(NSString), stringWithUTF8String: c"com.artursavytskyi.re.windows".as_ptr()];
+        let queue: *mut AnyObject = msg_send![class!(NSOperationQueue), mainQueue];
+        let _: *mut AnyObject = msg_send![center, addObserverForName: name, object: std::ptr::null::<AnyObject>(),
+                                          queue: queue, usingBlock: &*handler];
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -234,6 +315,8 @@ pub fn run() {
             std::thread::spawn(move || responder.respond(serve(&app, &path)));
         })
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            listen_for_desk_fades();
             // ~/Library/Application Support/<identifier>/ on macOS
             let root = app.path().app_data_dir()?;
             let library = Library::open(&root)?;

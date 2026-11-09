@@ -2634,6 +2634,7 @@ name = "rebook"
 version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
+ "block2",
  "imagesize",
  "objc2",
  "objc2-app-kit",
