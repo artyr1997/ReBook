@@ -223,48 +223,106 @@ fn window_ready(webview: tauri::Webview) {
     reveal(&webview.window(), std::time::Duration::ZERO);
 }
 
-/// ReDesk's Hide / Show Windows (a distributed notification, "hide" or "show"): the windows fade out
-/// and then the app hides, or the app shows again with its windows fading in.
+/// How long the windows take to fade out (hiding, closing) and in (showing again).
 #[cfg(target_os = "macos")]
-fn listen_for_desk_fades() {
-    use block2::RcBlock;
+const FADE_SECONDS: f64 = 0.4;
+
+/// `windows` animated to `alpha` over FADE_SECONDS, then `done`.
+#[cfg(target_os = "macos")]
+unsafe fn fade_windows(windows: &[*mut objc2::runtime::AnyObject], alpha: f64, done: Option<&block2::Block<dyn Fn()>>) {
     use objc2::runtime::AnyObject;
     use objc2::{class, msg_send};
+    let _: () = msg_send![class!(NSAnimationContext), beginGrouping];
+    let context: *mut AnyObject = msg_send![class!(NSAnimationContext), currentContext];
+    let _: () = msg_send![context, setDuration: FADE_SECONDS];
+    let name: *mut AnyObject = msg_send![class!(NSString), stringWithUTF8String: c"easeInEaseOut".as_ptr()];
+    let timing: *mut AnyObject = msg_send![class!(CAMediaTimingFunction), functionWithName: name];
+    let _: () = msg_send![context, setTimingFunction: timing];
+    if let Some(done) = done {
+        let _: () = msg_send![context, setCompletionHandler: done];
+    }
+    for &window in windows {
+        let animator: *mut AnyObject = msg_send![window, animator];
+        let _: () = msg_send![animator, setAlphaValue: alpha];
+    }
+    let _: () = msg_send![class!(NSAnimationContext), endGrouping];
+}
+
+/// all of the app's NSWindows
+#[cfg(target_os = "macos")]
+unsafe fn app_windows() -> Vec<*mut objc2::runtime::AnyObject> {
+    use objc2::runtime::AnyObject;
+    use objc2::{class, msg_send};
+    let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+    let windows: *mut AnyObject = msg_send![app, windows];
+    let count: usize = msg_send![windows, count];
+    (0..count).map(|i| msg_send![windows, objectAtIndex: i]).collect()
+}
+
+/// NSApplication's own hide:, kept to be called once the windows have faded out
+#[cfg(target_os = "macos")]
+static HIDE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// hide: (⌘H, the Hide menu item, ReDesk's Hide / Show Windows): the windows fade out first
+#[cfg(target_os = "macos")]
+unsafe extern "C-unwind" fn fading_hide(this: *mut objc2::runtime::AnyObject, sel: objc2::runtime::Sel, sender: *mut objc2::runtime::AnyObject) {
+    use block2::RcBlock;
+    let this = this as usize;
+    let sender = sender as usize;
+    let done = RcBlock::new(move || {
+        // SAFETY: HIDE holds NSApplication's hide:, which takes these arguments
+        unsafe {
+            let hide: unsafe extern "C-unwind" fn(*mut objc2::runtime::AnyObject, objc2::runtime::Sel, *mut objc2::runtime::AnyObject) =
+                std::mem::transmute(HIDE.load(std::sync::atomic::Ordering::Relaxed));
+            hide(this as *mut _, sel, sender as *mut _);
+            // hidden now: back to whole, for when the app shows again (which fades them in)
+            for window in app_windows() {
+                let _: () = objc2::msg_send![window, setAlphaValue: 1.0f64];
+            }
+        }
+    });
+    // SAFETY: on the main thread, as hide: is
+    unsafe { fade_windows(&app_windows(), 0.0, Some(&done)) };
+}
+
+/// Windows fade out when the app hides and when one closes, and fade in when the app shows again.
+/// ReDesk's Hide / Show Windows and Close All Windows ask with a distributed notification, "hide", "show" or "close".
+#[cfg(target_os = "macos")]
+fn fade_windows_in_and_out() {
+    use block2::RcBlock;
+    use objc2::runtime::AnyObject;
+    use objc2::{class, msg_send, sel};
     use std::ffi::CStr;
 
-    /// every window of the app animated to `alpha`, then `done`
-    unsafe fn animate(alpha: f64, done: Option<&block2::Block<dyn Fn()>>) {
-        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
-        let windows: *mut AnyObject = msg_send![app, windows];
-        let count: usize = msg_send![windows, count];
-        let _: () = msg_send![class!(NSAnimationContext), beginGrouping];
-        let context: *mut AnyObject = msg_send![class!(NSAnimationContext), currentContext];
-        let _: () = msg_send![context, setDuration: 0.25f64];
-        if let Some(done) = done {
-            let _: () = msg_send![context, setCompletionHandler: done];
+    // SAFETY: AppKit's own objects, on the main thread (setup); hide: keeps its signature
+    unsafe {
+        let method = objc2::ffi::class_getInstanceMethod(class!(NSApplication), sel!(hide:));
+        if !method.is_null() {
+            let ours: objc2::runtime::Imp = std::mem::transmute(fading_hide as *const ());
+            // only once: a second time would keep fading_hide as the "original"
+            if HIDE.load(std::sync::atomic::Ordering::Relaxed) == 0 {
+                if let Some(old) = objc2::ffi::method_setImplementation(method, ours) {
+                    HIDE.store(old as usize, std::sync::atomic::Ordering::Relaxed);
+                }
+            }
         }
-        for i in 0..count {
-            let window: *mut AnyObject = msg_send![windows, objectAtIndex: i];
-            let animator: *mut AnyObject = msg_send![window, animator];
-            let _: () = msg_send![animator, setAlphaValue: alpha];
-        }
-        let _: () = msg_send![class!(NSAnimationContext), endGrouping];
-    }
 
-    /// every window's alpha set at once
-    unsafe fn set_alpha(alpha: f64) {
-        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
-        let windows: *mut AnyObject = msg_send![app, windows];
-        let count: usize = msg_send![windows, count];
-        for i in 0..count {
-            let window: *mut AnyObject = msg_send![windows, objectAtIndex: i];
-            let _: () = msg_send![window, setAlphaValue: alpha];
-        }
-    }
+        let center: *mut AnyObject = msg_send![class!(NSNotificationCenter), defaultCenter];
+        let null = std::ptr::null::<AnyObject>();
+        let will = RcBlock::new(|_: *mut AnyObject| {
+            for window in app_windows() {
+                let _: () = msg_send![window, setAlphaValue: 0.0f64];
+            }
+        });
+        let did = RcBlock::new(|_: *mut AnyObject| fade_windows(&app_windows(), 1.0, None));
+        let will_name: *mut AnyObject =
+            msg_send![class!(NSString), stringWithUTF8String: c"NSApplicationWillUnhideNotification".as_ptr()];
+        let did_name: *mut AnyObject =
+            msg_send![class!(NSString), stringWithUTF8String: c"NSApplicationDidUnhideNotification".as_ptr()];
+        let _: *mut AnyObject = msg_send![center, addObserverForName: will_name, object: null, queue: null, usingBlock: &*will];
+        let _: *mut AnyObject = msg_send![center, addObserverForName: did_name, object: null, queue: null, usingBlock: &*did];
 
-    let handler = RcBlock::new(|note: *mut AnyObject| {
-        // SAFETY: on the main queue, with AppKit's own objects
-        unsafe {
+        let desk = RcBlock::new(|note: *mut AnyObject| {
             let object: *mut AnyObject = msg_send![note, object];
             if object.is_null() {
                 return;
@@ -277,36 +335,53 @@ fn listen_for_desk_fades() {
             let hidden: bool = msg_send![app, isHidden];
             match CStr::from_ptr(text).to_bytes() {
                 b"hide" if !hidden => {
-                    let done = RcBlock::new(|| {
-                        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
-                        let _: () = msg_send![app, hide: std::ptr::null::<AnyObject>()];
-                        set_alpha(1.0);
-                    });
-                    animate(0.0, Some(&done));
+                    let _: () = msg_send![app, hide: null];
                 }
                 b"show" if hidden => {
-                    set_alpha(0.0);
                     let _: () = msg_send![app, unhideWithoutActivation];
-                    animate(1.0, None);
+                }
+                b"close" => {
+                    let windows = app_windows();
+                    let shown: Vec<_> = windows.iter().copied().filter(|&w| msg_send![w, isVisible]).collect();
+                    let gone = windows.iter().map(|&w| w as usize).collect::<Vec<_>>();
+                    let done = RcBlock::new(move || {
+                        for &window in &gone {
+                            let _: () = msg_send![window as *mut AnyObject, close];
+                        }
+                    });
+                    fade_windows(&shown, 0.0, Some(&done));
                 }
                 _ => {}
             }
-        }
-    });
-    // SAFETY: the center copies the block and keeps the observer for the app's life
-    unsafe {
-        let center: *mut AnyObject = msg_send![class!(NSDistributedNotificationCenter), defaultCenter];
+        });
+        let distributed: *mut AnyObject = msg_send![class!(NSDistributedNotificationCenter), defaultCenter];
         let name: *mut AnyObject =
             msg_send![class!(NSString), stringWithUTF8String: c"com.artursavytskyi.re.windows".as_ptr()];
         let queue: *mut AnyObject = msg_send![class!(NSOperationQueue), mainQueue];
-        let _: *mut AnyObject = msg_send![center, addObserverForName: name, object: std::ptr::null::<AnyObject>(),
-                                          queue: queue, usingBlock: &*handler];
+        let _: *mut AnyObject = msg_send![distributed, addObserverForName: name, object: null, queue: queue, usingBlock: &*desk];
     }
 }
+
+/// A window asked to close fades out first, then goes.
+fn fade_on_close(window: &tauri::Window, event: &tauri::WindowEvent) {
+    #[cfg(target_os = "macos")]
+    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        let Ok(ns_window) = window.ns_window() else { return };
+        api.prevent_close();
+        let target = window.clone();
+        let done = block2::RcBlock::new(move || {
+            let _ = target.destroy();
+        });
+        // SAFETY: the live NSWindow of `window`, on the main thread (window events are)
+        unsafe { fade_windows(&[ns_window as *mut objc2::runtime::AnyObject], 0.0, Some(&done)) };
+    }
+}
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .on_window_event(fade_on_close)
         .plugin(tauri_plugin_dialog::init())
         .register_asynchronous_uri_scheme_protocol("rebook", |ctx, request, responder| {
             let app = ctx.app_handle().clone();
@@ -316,7 +391,7 @@ pub fn run() {
         })
         .setup(|app| {
             #[cfg(target_os = "macos")]
-            listen_for_desk_fades();
+            fade_windows_in_and_out();
             // ~/Library/Application Support/<identifier>/ on macOS
             let root = app.path().app_data_dir()?;
             let library = Library::open(&root)?;
