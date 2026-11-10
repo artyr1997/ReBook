@@ -362,6 +362,109 @@ fn fade_windows_in_and_out() {
     }
 }
 
+/// The app, for ReDesk's word on which corners to round (listen_for_desk_corners).
+#[cfg(target_os = "macos")]
+static DESK_APP: std::sync::OnceLock<tauri::AppHandle> = std::sync::OnceLock::new();
+
+/// ReDesk's Flush tiling: the windows side by side as one, so only the outer corners of them all are
+/// round. ReDesk says, for each window, which corners (1 top left, 2 top right, 4 bottom left, 8 bottom
+/// right) and which of its edges touch another window (1 top, 2 right, 4 bottom, 8 left): the window
+/// rounds only those corners, draws no rim along those edges, and casts no shadow on its neighbours.
+#[cfg(target_os = "macos")]
+fn listen_for_desk_corners(app: &tauri::AppHandle) {
+    use block2::RcBlock;
+    use objc2::runtime::AnyObject;
+    use objc2::{class, msg_send};
+    use tauri::Manager;
+
+    let _ = DESK_APP.set(app.clone());
+    let handler = RcBlock::new(|note: *mut AnyObject| {
+        // SAFETY: on the main queue; the userInfo ReDesk sends holds numbers only
+        unsafe {
+            let info: *mut AnyObject = msg_send![note, userInfo];
+            if info.is_null() {
+                return;
+            }
+            let number = |key: &std::ffi::CStr| -> f64 {
+                let key: *mut AnyObject = msg_send![class!(NSString), stringWithUTF8String: key.as_ptr()];
+                let value: *mut AnyObject = msg_send![info, objectForKey: key];
+                if value.is_null() { -1.0 } else { msg_send![value, doubleValue] }
+            };
+            if number(c"pid") as u32 != std::process::id() {
+                return;
+            }
+            let (corners, edges) = (number(c"corners") as u32, number(c"edges") as u32);
+            let Some(app) = DESK_APP.get() else { return };
+            let Some(window) = app.get_webview_window("main") else { return };
+            // this app's window there? (a second one of its windows is not this)
+            let scale = window.scale_factor().unwrap_or(1.0);
+            if let (Ok(at), Ok(size)) = (window.outer_position(), window.outer_size()) {
+                let near = |a: f64, b: f64| (a - b).abs() < 24.0;
+                if !(near(at.x as f64 / scale, number(c"x")) && near(at.y as f64 / scale, number(c"y"))
+                    && near(size.width as f64 / scale, number(c"w")) && near(size.height as f64 / scale, number(c"h")))
+                {
+                    return;
+                }
+            }
+            set_corners(&window, corners, edges);
+        }
+    });
+    // SAFETY: AppKit's own objects, on the main thread (setup); the center keeps the block
+    unsafe {
+        let center: *mut AnyObject = msg_send![class!(NSDistributedNotificationCenter), defaultCenter];
+        let name: *mut AnyObject =
+            msg_send![class!(NSString), stringWithUTF8String: c"com.artursavytskyi.re.corners".as_ptr()];
+        let queue: *mut AnyObject = msg_send![class!(NSOperationQueue), mainQueue];
+        let _: *mut AnyObject = msg_send![center, addObserverForName: name, object: std::ptr::null::<AnyObject>(),
+                                          queue: queue, usingBlock: &*handler];
+    }
+}
+
+/// Only `corners` round (the view's layer and the rim), no rim along `edges`, a shadow only when alone.
+#[cfg(target_os = "macos")]
+fn set_corners(window: &tauri::WebviewWindow, corners: u32, edges: u32) {
+    use objc2::msg_send;
+    use objc2::runtime::AnyObject;
+
+    let _ = window.with_webview(move |platform| {
+        let view = platform.inner() as *mut AnyObject;
+        if view.is_null() {
+            return;
+        }
+        // SAFETY: the live WKWebView, on the main thread
+        unsafe {
+            let layer: *mut AnyObject = msg_send![view, layer];
+            if layer.is_null() {
+                return;
+            }
+            // the layer's own corners (CACornerMask: min X min Y 1, max X min Y 2, min X max Y 4, max X max Y 8);
+            // its min Y is at the top when its contents are flipped
+            let flipped: bool = msg_send![layer, contentsAreFlipped];
+            let (top_left, top_right, bottom_left, bottom_right) = if flipped { (1, 2, 4, 8) } else { (4, 8, 1, 2) };
+            let mut mask: usize = 0;
+            if corners & 1 != 0 { mask |= top_left; }
+            if corners & 2 != 0 { mask |= top_right; }
+            if corners & 4 != 0 { mask |= bottom_left; }
+            if corners & 8 != 0 { mask |= bottom_right; }
+            let _: () = msg_send![layer, setMaskedCorners: mask];
+        }
+    });
+    let _ = window.set_shadow(edges == 0);
+    let radius = |bit: u32| if corners & bit != 0 { 12 } else { 0 };
+    let width = |bit: u32| if edges & bit != 0 { 0 } else { 1 };
+    let css = if corners == 15 && edges == 0 {
+        String::new()
+    } else {
+        format!(
+            "body::after {{ border-radius: {}px {}px {}px {}px !important; border-width: {}px {}px {}px {}px !important; }}",
+            radius(1), radius(2), radius(8), radius(4), width(1), width(2), width(4), width(8)
+        )
+    };
+    let _ = window.eval(format!(
+        "(() => {{ let s = document.getElementById('re-corners'); if (!s) {{ s = document.createElement('style'); s.id = 're-corners'; document.head.appendChild(s); }} s.textContent = {css:?}; }})()"
+    ));
+}
+
 /// A window asked to close fades out first, then goes.
 fn fade_on_close(window: &tauri::Window, event: &tauri::WindowEvent) {
     #[cfg(target_os = "macos")]
@@ -392,6 +495,8 @@ pub fn run() {
         .setup(|app| {
             #[cfg(target_os = "macos")]
             fade_windows_in_and_out();
+            #[cfg(target_os = "macos")]
+            listen_for_desk_corners(app.handle());
             // ~/Library/Application Support/<identifier>/ on macOS
             let root = app.path().app_data_dir()?;
             let library = Library::open(&root)?;
