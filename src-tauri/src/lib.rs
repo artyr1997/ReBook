@@ -333,7 +333,16 @@ fn fade_windows_in_and_out() {
             }
             let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
             let hidden: bool = msg_send![app, isHidden];
-            match CStr::from_ptr(text).to_bytes() {
+            let said = CStr::from_ptr(text).to_bytes();
+            // "hide <pid>": this app alone (ReDesk's own desktops)
+            let mine = format!("hide {}", std::process::id());
+            if said == mine.as_bytes() {
+                if !hidden {
+                    let _: () = msg_send![app, hide: null];
+                }
+                return;
+            }
+            match said {
                 b"hide" if !hidden => {
                     let _: () = msg_send![app, hide: null];
                 }
