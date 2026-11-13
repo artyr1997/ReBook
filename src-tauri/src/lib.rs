@@ -378,7 +378,7 @@ static DESK_APP: std::sync::OnceLock<tauri::AppHandle> = std::sync::OnceLock::ne
 /// ReDesk's Flush tiling: the windows side by side as one, so only the outer corners of them all are
 /// round. ReDesk says, for each window, which corners (1 top left, 2 top right, 4 bottom left, 8 bottom
 /// right) and which of its edges touch another window (1 top, 2 right, 4 bottom, 8 left): the window
-/// rounds only those corners, draws no rim along those edges, and casts no shadow on its neighbours.
+/// rounds only those corners (no window has a rim or a shadow anyway).
 #[cfg(target_os = "macos")]
 fn listen_for_desk_corners(app: &tauri::AppHandle) {
     use block2::RcBlock;
@@ -402,7 +402,7 @@ fn listen_for_desk_corners(app: &tauri::AppHandle) {
             if number(c"pid") as u32 != std::process::id() {
                 return;
             }
-            let (corners, edges) = (number(c"corners") as u32, number(c"edges") as u32);
+            let corners = number(c"corners") as u32;
             let Some(app) = DESK_APP.get() else { return };
             let Some(window) = app.get_webview_window("main") else { return };
             // this app's window there? (a second one of its windows is not this)
@@ -415,7 +415,7 @@ fn listen_for_desk_corners(app: &tauri::AppHandle) {
                     return;
                 }
             }
-            set_corners(&window, corners, edges);
+            set_corners(&window, corners);
         }
     });
     // SAFETY: AppKit's own objects, on the main thread (setup); the center keeps the block
@@ -429,9 +429,9 @@ fn listen_for_desk_corners(app: &tauri::AppHandle) {
     }
 }
 
-/// Only `corners` round (the view's layer and the rim), no rim along `edges`, a shadow only when alone.
+/// Only `corners` round (the view's layer). No rim and no shadow, alone or not.
 #[cfg(target_os = "macos")]
-fn set_corners(window: &tauri::WebviewWindow, corners: u32, edges: u32) {
+fn set_corners(window: &tauri::WebviewWindow, corners: u32) {
     use objc2::msg_send;
     use objc2::runtime::AnyObject;
 
@@ -458,20 +458,6 @@ fn set_corners(window: &tauri::WebviewWindow, corners: u32, edges: u32) {
             let _: () = msg_send![layer, setMaskedCorners: mask];
         }
     });
-    let _ = window.set_shadow(edges == 0);
-    let radius = |bit: u32| if corners & bit != 0 { 12 } else { 0 };
-    let width = |bit: u32| if edges & bit != 0 { 0 } else { 1 };
-    let css = if corners == 15 && edges == 0 {
-        String::new()
-    } else {
-        format!(
-            "body::after {{ border-radius: {}px {}px {}px {}px !important; border-width: {}px {}px {}px {}px !important; }}",
-            radius(1), radius(2), radius(8), radius(4), width(1), width(2), width(4), width(8)
-        )
-    };
-    let _ = window.eval(format!(
-        "(() => {{ let s = document.getElementById('re-corners'); if (!s) {{ s = document.createElement('style'); s.id = 're-corners'; document.head.appendChild(s); }} s.textContent = {css:?}; }})()"
-    ));
 }
 
 /// A window asked to close fades out first, then goes.
