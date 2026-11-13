@@ -174,6 +174,7 @@
 	});
 
 	const shortcuts = [
+		['⌘ N', 'New window'],
 		['↑ / ↓', 'Select'],
 		['Enter / →', 'Read'],
 		['← → / Space', 'Turn pages'],

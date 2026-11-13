@@ -404,18 +404,17 @@ fn listen_for_desk_corners(app: &tauri::AppHandle) {
             }
             let corners = number(c"corners") as u32;
             let Some(app) = DESK_APP.get() else { return };
-            let Some(window) = app.get_webview_window("main") else { return };
-            // this app's window there? (a second one of its windows is not this)
-            let scale = window.scale_factor().unwrap_or(1.0);
-            if let (Ok(at), Ok(size)) = (window.outer_position(), window.outer_size()) {
-                let near = |a: f64, b: f64| (a - b).abs() < 24.0;
-                if !(near(at.x as f64 / scale, number(c"x")) && near(at.y as f64 / scale, number(c"y"))
-                    && near(size.width as f64 / scale, number(c"w")) && near(size.height as f64 / scale, number(c"h")))
+            // which of the app's windows it is: the one with that frame
+            let near = |a: f64, b: f64| (a - b).abs() < 24.0;
+            for window in app.webview_windows().into_values() {
+                let scale = window.scale_factor().unwrap_or(1.0);
+                let (Ok(at), Ok(size)) = (window.outer_position(), window.outer_size()) else { continue };
+                if near(at.x as f64 / scale, number(c"x")) && near(at.y as f64 / scale, number(c"y"))
+                    && near(size.width as f64 / scale, number(c"w")) && near(size.height as f64 / scale, number(c"h"))
                 {
-                    return;
+                    set_corners(&window, corners);
                 }
             }
-            set_corners(&window, corners);
         }
     });
     // SAFETY: AppKit's own objects, on the main thread (setup); the center keeps the block
@@ -476,6 +475,42 @@ fn fade_on_close(window: &tauri::Window, event: &tauri::WindowEvent) {
 }
 
 
+// ── more windows: ⌘N ──
+
+/// Windows opened so far (the first is "main"): the next one's label.
+static WINDOW_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
+
+/// ⌘N: another window, as the first one is (tauri.conf.json): the size of the one in front, a little
+/// lower and to the right of it. It fades in once its interface has drawn itself (window_ready).
+#[tauri::command]
+async fn new_window(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    let n = WINDOW_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+    let mut config = app.config().app.windows.first().cloned().ok_or("No window to copy")?;
+    config.label = format!("w{n}");
+    let windows = app.webview_windows();
+    let front = windows.values().find(|w| w.is_focused().unwrap_or(false)).or_else(|| windows.values().next());
+    let mut place = None;
+    if let Some(front) = front {
+        let scale = front.scale_factor().unwrap_or(1.0);
+        if let (Ok(at), Ok(size)) = (front.outer_position(), front.inner_size()) {
+            config.center = false;
+            config.width = size.width as f64 / scale;
+            config.height = size.height as f64 / scale;
+            place = Some((at.x as f64 / scale + 28.0, at.y as f64 / scale + 28.0));
+        }
+    }
+    let mut builder = tauri::WebviewWindowBuilder::from_config(&app, &config).map_err(|e| e.to_string())?;
+    if let Some((x, y)) = place {
+        builder = builder.position(x, y);
+    }
+    let window = builder.build().map_err(|e| e.to_string())?;
+    #[cfg(target_os = "macos")]
+    round_window(&window);
+    reveal(&window.as_ref().window(), std::time::Duration::from_secs(3));
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -506,6 +541,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             window_ready,
+            new_window,
             list_books,
             import_books,
             set_details,

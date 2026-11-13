@@ -1,9 +1,9 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "UI permissions: core, custom window buttons and drag area, full screen for reading, file picker for ADD",
+  "description": "UI permissions: core, custom window buttons and drag area, full screen for reading, file picker for ADD; every window (\u2318N opens more)",
   "windows": [
-    "main"
+    "*"
   ],
   "permissions": [
     "core:default",

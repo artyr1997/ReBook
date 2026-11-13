@@ -7,7 +7,7 @@ Rust (Tauri) keeps the library; the interface is Svelte.
   whole screen; the cover stands alone. EPUB text reflows in two columns on wide windows.
 - **Library**: books are copied in on import (ADD or drop files onto the window),
   with title, author, cover and the place you stopped reading.
-- Keys: ↑ ↓ select · Enter read · ← → / Space turn pages · F full screen · Esc back ·
+- Keys: ⌘N new window · ↑ ↓ select · Enter read · ← → / Space turn pages · F full screen · Esc back ·
   / search · A add · I info · Backspace remove
 
 ## Run
