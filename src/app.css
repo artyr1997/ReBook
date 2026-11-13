@@ -239,7 +239,7 @@ input:focus::placeholder {
 	}
 }
 
-/* ── Small window (like ReSound's mini player): the side buttons give way
+/* ── Small window (like RePlay's mini player): the side buttons give way
    to a few small ones in the corners; the window controls keep the top left ── */
 .corner {
 	display: none;
